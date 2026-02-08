@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Chow Sim iOS 26 - Ultimate Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1",
+        "htm": "https://esm.sh/htm@3.1.1"
+      }
+    }
+    </script>
+    <style>
+        ::-webkit-scrollbar { display: none; }
+        body {
+            background-color: #000;
+            color: #fff;
+            overscroll-behavior: none;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .glass { background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .ios-shadow { box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5); }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+        @keyframes sway { 0%, 100% { transform: rotate(-1deg); } 50% { transform: rotate(1deg); } }
+        .animate-float { animation: float 5s infinite ease-in-out; }
+        .animate-breathe { animation: breathe 4s infinite ease-in-out; }
+        .animate-sway { animation: sway 3s infinite ease-in-out; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .pin-btn { background: rgba(255,255,255,0.1); border-radius: 50%; width: 70px; height: 70px; font-size: 24px; font-weight: 500; display: flex; align-items: center; justify-content: center; transition: background 0.2s; backdrop-filter: blur(10px); }
+        .pin-btn:active { background: rgba(255,255,255,0.3); }
+        .settings-btn { width: 100%; display: flex; align-items: center; gap: 12px; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 16px; font-weight: 600; font-size: 14px; transition: all 0.2s; }
+        .settings-btn:active { background: rgba(255,255,255,0.1); transform: scale(0.98); }
+
+        /* Phone Backgrounds */
+        .phone-bg-default { background: linear-gradient(180deg, #0f172a 0%, #000 100%); }
+        .phone-bg-sunset { background: linear-gradient(180deg, #f97316 0%, #7c2d12 100%); }
+        .phone-bg-ocean { background: linear-gradient(180deg, #0ea5e9 0%, #1e3a8a 100%); }
+        .phone-bg-midnight { background: linear-gradient(180deg, #4c1d95 0%, #000 100%); }
+        .phone-bg-forest { background: linear-gradient(180deg, #22c55e 0%, #064e3b 100%); }
+        .phone-bg-gold { background: linear-gradient(180deg, #fbbf24 0%, #78350f 100%); }
+        .phone-bg-rose { background: linear-gradient(180deg, #fb7185 0%, #881337 100%); }
+        .phone-bg-sky { background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%); }
+        .phone-bg-emerald { background: linear-gradient(180deg, #10b981 0%, #064e3b 100%); }
+        .phone-bg-cyber { background: linear-gradient(180deg, #d946ef 0%, #4c1d95 100%); }
+        .phone-bg-lava { background: linear-gradient(180deg, #ef4444 0%, #7f1d1d 100%); }
+        .phone-bg-mint { background: linear-gradient(180deg, #2dd4bf 0%, #134e4a 100%); }
+        .phone-bg-purple { background: linear-gradient(180deg, #c084fc 0%, #581c87 100%); }
+        .phone-bg-pink { background: linear-gradient(180deg, #f472b6 0%, #831843 100%); }
+
+        .chat-bubble-me { background: #3b82f6; color: white; border-radius: 18px 18px 4px 18px; padding: 10px 16px; margin-left: auto; max-width: 80%; font-size: 13px; }
+        .chat-bubble-them { background: #333; color: white; border-radius: 18px 18px 18px 4px; padding: 10px 16px; margin-right: auto; max-width: 80%; font-size: 13px; }
+
+        .game-platform { position: absolute; height: 12px; background: #22c55e; border-radius: 6px; box-shadow: 0 4px 0 #15803d; }
+        .game-player { position: absolute; width: 24px; height: 24px; background: #ef4444; border-radius: 6px; transition: left 0.05s linear; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        import React, { useState, useEffect, useRef } from 'react';
+        import ReactDOM from 'react-dom/client';
+        import * as Lucide from 'lucide-react';
+        import htm from 'htm';
+
+        const html = htm.bind(React.createElement);
+
+        // --- CONSTANTS ---
+        const SUBJECTS = [
+            'Mathematics', 'English Lit', 'Physics', 'Chemistry', 'Biology', 
+            'Computer Science', 'Business Studies', 'Art & Design', 'Geography', 'History', 
+            'Physical Education', 'Psychology', 'Economics', 'Law', 'Medicine', 
+            'Engineering', 'Architecture', 'Politics', 'Philosophy', 'Media Studies', 
+            'Acting', 'Astronomy'
+        ];
+        
+        const JOBS = [
+            { id: 'j1', name: 'Burger Flipper', salary: 200, minAge: 13, reqSubject: null, reqLevel: 0 },
+            { id: 'j2', name: 'Paper Deliverer', salary: 150, minAge: 13, reqSubject: null, reqLevel: 0 },
+            { id: 'j3', name: 'Retail Assistant', salary: 116, minAge: 14, reqSubject: 'Mathematics', reqLevel: 10 },
+            { id: 'j4', name: 'Gym Instructor', salary: 133, minAge: 16, reqSubject: 'Physical Education', reqLevel: 20 },
+            { id: 'j5', name: 'Junior Coder', salary: 266, minAge: 16, reqSubject: 'Computer Science', reqLevel: 30 },
+            { id: 'j7', name: 'Accountant', salary: 500, minAge: 18, reqSubject: 'Mathematics', reqLevel: 50 },
+            { id: 'j8', name: 'Lawyer', salary: 1000, minAge: 18, reqSubject: 'Law', reqLevel: 60 },
+            { id: 'j9', name: 'Doctor', salary: 1666, minAge: 18, reqSubject: 'Medicine', reqLevel: 80 },
+            { id: 'j10', name: 'Engineer', salary: 1333, minAge: 18, reqSubject: 'Engineering', reqLevel: 70 },
+            { id: 'j11', name: 'Architect', salary: 1166, minAge: 18, reqSubject: 'Architecture', reqLevel: 65 },
+            { id: 'j13', name: 'Politician', salary: 2000, minAge: 18, reqSubject: 'Politics', reqLevel: 80 },
+            { id: 'j16', name: 'Actor', salary: 3333, minAge: 18, reqSubject: 'Acting', reqLevel: 100 },
+            { id: 'j17', name: 'Astronaut', salary: 6666, minAge: 18, reqSubject: 'Astronomy', reqLevel: 110 },
+            { id: 'j12', name: 'CEO', salary: 5000, minAge: 18, reqSubject: 'Business Studies', reqLevel: 100 },
+        ];
+        
+        const PHONES = [
+             { id: 'ip8', name: 'iPhone 8', price: 3000, type: 'phone' },
+             { id: 'ipSE', name: 'iPhone SE', price: 4000, type: 'phone' },
+             { id: 'ipX', name: 'iPhone X', price: 6000, type: 'phone' },
+             { id: 'ipXR', name: 'iPhone XR', price: 7000, type: 'phone' },
+             { id: 'ip11', name: 'iPhone 11', price: 8000, type: 'phone' },
+             { id: 'ip11p', name: 'iPhone 11 Pro', price: 9000, type: 'phone' },
+             { id: 'ip12', name: 'iPhone 12', price: 10000, type: 'phone' },
+             { id: 'ip12p', name: 'iPhone 12 Pro', price: 11000, type: 'phone' },
+             { id: 'ip13', name: 'iPhone 13', price: 12000, type: 'phone' },
+             { id: 'ip13p', name: 'iPhone 13 Pro', price: 13000, type: 'phone' },
+             { id: 'ip14', name: 'iPhone 14', price: 14000, type: 'phone' },
+             { id: 'ip14p', name: 'iPhone 14 Pro', price: 15000, type: 'phone' },
+             { id: 'ip15', name: 'iPhone 15', price: 16000, type: 'phone' },
+             { id: 'ip15p', name: 'iPhone 15 Pro', price: 17000, type: 'phone' },
+             { id: 'ip16', name: 'iPhone 16', price: 18000, type: 'phone' },
+             { id: 'ip16p', name: 'iPhone 16 Pro', price: 20000, type: 'phone' },
+             { id: 'ip17', name: 'iPhone 17', price: 22000, type: 'phone' },
+             { id: 'ip18', name: 'iPhone 18', price: 25000, type: 'phone' },
+             { id: 's20', name: 'Samsung S20', price: 8000, type: 'phone', brand: 'Samsung' },
+             { id: 's21', name: 'Samsung S21', price: 9000, type: 'phone', brand: 'Samsung' },
+             { id: 's22', name: 'Samsung S22', price: 10000, type: 'phone', brand: 'Samsung' },
+             { id: 's23', name: 'Samsung S23', price: 11000, type: 'phone', brand: 'Samsung' },
+             { id: 's24u', name: 'Samsung S24 Ultra', price: 14000, type: 'phone', brand: 'Samsung' },
+             { id: 's25u', name: 'Samsung S25 Ultra', price: 17000, type: 'phone', brand: 'Samsung' },
+             { id: 's26u', name: 'Samsung S26 Ultra', price: 20000, type: 'phone', brand: 'Samsung' },
+        ];
+        const HOUSES = [
+            { id: 'h1', name: "Cardboard Box", price: 100 },
+            { id: 'h2', name: "Tent", price: 500 },
+            { id: 'h3', name: "Wooden Shed", price: 2000 },
+            { id: 'h4', name: "Old Caravan", price: 8000 },
+            { id: 'h5', name: "Basement Room", price: 15000 },
+            { id: 'h6', name: "Studio Flat", price: 60000 },
+            { id: 'h7', name: "One-Bed Flat", price: 120000 },
+            { id: 'h8', name: "Suburban House", price: 350000 },
+            { id: 'h9', name: "Modern Villa", price: 850000 },
+            { id: 'h10', name: "City Penthouse", price: 2500000 },
+            { id: 'h11', name: "Royal Mansion", price: 5000000 },
+            { id: 'h12', name: "Elite Estate", price: 12000000 },
+            { id: 'h13', name: "Private Island", price: 25000000 },
+            { id: 'h20', name: "Chow Castle", price: 5000000000 },
+        ];
+        const CARS = [
+            { id: 'c1', name: 'Rusty Bike', price: 50, color: '#555' },
+            { id: 'c2', name: 'Skateboard', price: 150, color: '#333' },
+            { id: 'c3', name: 'Old Scooter', price: 800, color: '#f97316' },
+            { id: 'c4', name: 'Used VW Golf', price: 5000, color: '#1e3a8a' },
+            { id: 'c6', name: 'Tesla Model 3', price: 45000, color: '#fff' },
+            { id: 'c7', name: 'BMW M4', price: 85000, color: '#000' },
+            { id: 'c12', name: 'Ferrari F8', price: 350000, color: '#ef4444' },
+            { id: 'c_chow', name: "Chow's Lambo", price: 1000000, color: '#facc15', isSpecial: true },
+        ];
+        const CHAINS = [
+            { id: 'ch1', name: 'Copper Chain', price: 50, color: '#b87333' },
+            { id: 'ch2', name: 'Silver Chain', price: 400, color: '#aaa' },
+            { id: 'ch4', name: 'Gold Chain', price: 2500, color: '#ffd700' },
+            { id: 'ch7', name: 'Diamond Chain', price: 10000, color: '#b9f2ff' },
+            { id: 'ch12', name: 'Solid Diamond Chain', price: 300000, color: '#b9f2ff' },
+        ];
+        const RINGS = [
+            { id: 'r1', name: 'Plastic Ring', price: 10, color: '#efefef' },
+            { id: 'r2', name: 'Silver Band', price: 150, color: '#aaa' },
+            { id: 'r4', name: 'Gold Band', price: 500, color: '#fcd34d' },
+            { id: 'r10', name: 'Diamond Solitaire', price: 15000, color: '#b9f2ff' },
+            { id: 'r12', name: 'Royal Crown Ring', price: 100000, color: '#fbbf24' },
+        ];
+        const WELLNESS = [
+            { id: 'w1', name: 'Vitamin Shot', price: 50, happy: 5, health: 3 },
+            { id: 'w2', name: 'Spa Day', price: 250, happy: 10, health: 7 },
+            { id: 'w3', name: 'Therapy Session', price: 500, happy: 20, health: 5 },
+            { id: 'w4', name: 'Stem Cell Therapy', price: 5000, happy: 40, health: 50 },
+            { id: 'w5', name: 'Full Body Scan', price: 10000, happy: 10, health: 100 },
+        ];
+        const WALLPAPERS = [
+            { id: 'bg1', name: 'Default Dark', price: 0, class: 'phone-bg-default' },
+            { id: 'bg2', name: 'Sunset Vibes', price: 100, class: 'phone-bg-sunset' },
+            { id: 'bg3', name: 'Ocean Depth', price: 200, class: 'phone-bg-ocean' },
+            { id: 'bg4', name: 'Midnight Purple', price: 500, class: 'phone-bg-midnight' },
+            { id: 'bg5', name: 'Deep Forest', price: 750, class: 'phone-bg-forest' },
+            { id: 'bg6', name: 'Gold Rush', price: 1000, class: 'phone-bg-gold' },
+            { id: 'bg7', name: 'Royal Rose', price: 1500, class: 'phone-bg-rose' },
+            { id: 'bg8', name: 'Clear Sky', price: 200, class: 'phone-bg-sky' },
+            { id: 'bg9', name: 'Emerald Isle', price: 300, class: 'phone-bg-emerald' },
+            { id: 'bg10', name: 'Cyber Neon', price: 800, class: 'phone-bg-cyber' },
+            { id: 'bg11', name: 'Volcano Lava', price: 1200, class: 'phone-bg-lava' },
+            { id: 'bg12', name: 'Lush Mint', price: 400, class: 'phone-bg-mint' },
+            { id: 'bg13', name: 'Deep Purple', price: 600, class: 'phone-bg-purple' },
+            { id: 'bg14', name: 'Barbie Pink', price: 900, class: 'phone-bg-pink' },
+        ];
+        const APPS = [
+            { id: 'a1', name: 'ChowSapp', price: 0, icon: Lucide.MessageCircle, color: 'bg-green-500', category: 'Social' },
+            { id: 'a2', name: 'ChowBank', price: 0, icon: Lucide.Landmark, color: 'bg-blue-600', category: 'Finance' },
+            { id: 'a3', name: 'ChowTube', price: 0, icon: Lucide.PlaySquare, color: 'bg-red-600', category: 'Entertainment' },
+            { id: 'a4', name: 'Chow AI', price: 2000, icon: Lucide.Bot, color: 'bg-purple-600', category: 'Productivity' },
+            { id: 'a5', name: 'ChowReviews', price: 0, icon: Lucide.Star, color: 'bg-yellow-500', category: 'Social' },
+        ];
+
+        const STORAGE_KEY = 'chow_sim_v13_save';
+
+        const getInitialState = () => ({
+            hasStarted: false,
+            isDead: false,
+            name: "",
+            gender: 'male',
+            avatarId: 'm1', // Default
+            money: 700,
+            age: 13,
+            week: 1,
+            health: 100,
+            happiness: 100,
+            bank: { balance: 0, debt: 0 },
+            social: { subscribers: 0 },
+            skills: { coding: 0, cooking: 0, fitness: 0, charm: 0 },
+            hobbies: [],
+            friends: [],
+            notifications: [],
+            settings: { accountName: '', accountEmail: '' },
+            education: { primary: 0, secondary: 0, subjects: SUBJECTS.reduce((acc, s) => ({ ...acc, [s]: 0 }), {}) },
+            job: null,
+            assets: { house: null, car: null, phone: null, chain: null, ring: null },
+            ownedAssets: [], 
+            installedApps: ['App Store', 'Chow Settings', 'ChowGame', 'ChowReviews'],
+            appRatings: {},
+            family: { mother: { name: 'Mother', rel: 50, age: 34 }, father: { name: 'Father', rel: 50, age: 35 } },
+            logs: [],
+            phoneLocked: true,
+            phonePin: '2580',
+            phoneBg: 'phone-bg-default',
+            ownedWallpapers: ['phone-bg-default'],
+            jail: { isJailed: false, clicks: 0 }
+        });
+
+        // --- COMPONENTS ---
+        
+        const AVATARS = {
+            male: [
+                { id: 'm1', name: 'Straight', render: () => html`<div className="absolute top-0 w-full h-8 bg-[#2d1a12] rounded-t-full" />` },
+                { id: 'm2', name: 'Curly', render: () => html`<div className="absolute top-0 w-full h-16 bg-[#2d1a12] rounded-[40%] blur-[0.5px]" />` },
+                { id: 'm3', name: 'Bald', render: () => null },
+                { id: 'm4', name: 'Spiky', render: () => html`<div className="absolute -top-3 w-full h-10 bg-[#2d1a12]" style=${{clipPath: 'polygon(20% 100%, 30% 0%, 50% 100%, 70% 0%, 80% 100%)'}} />` },
+                { id: 'm5', name: 'Dreads', render: () => html`<div className="absolute top-0 w-full h-12 flex justify-center gap-1"><div className="w-2 h-full bg-[#2d1a12] rounded-full"/><div className="w-2 h-full bg-[#2d1a12] rounded-full"/><div className="w-2 h-full bg-[#2d1a12] rounded-full"/><div className="w-2 h-full bg-[#2d1a12] rounded-full"/></div>` },
+            ],
+            female: [
+                { id: 'f1', name: 'Long', render: () => html`<div className="absolute top-0 w-full h-24 bg-[#3e2723] rounded-t-full -z-10" />` },
+                { id: 'f2', name: 'Curly', render: () => html`<div className="absolute top-0 w-[120%] -left-[10%] h-24 bg-[#3e2723] rounded-[40%] blur-[0.5px] -z-10" />` },
+                { id: 'f3', name: 'Bob', render: () => html`<div className="absolute top-0 w-full h-16 bg-[#3e2723] rounded-t-full rounded-b-lg -z-10" />` },
+                { id: 'f4', name: 'Ponytail', render: () => html`<div className="absolute top-0 w-full h-10 bg-[#3e2723] rounded-t-full"><div className="absolute top-2 -right-4 w-6 h-16 bg-[#3e2723] rounded-full" /></div>` },
+                { id: 'f5', name: 'Braids', render: () => html`<div className="absolute top-0 w-full h-10 bg-[#3e2723] rounded-t-full"><div className="absolute top-4 -left-2 w-3 h-20 bg-[#3e2723] rounded-full" /><div className="absolute top-4 -right-2 w-3 h-20 bg-[#3e2723] rounded-full" /></div>` },
+            ]
+        };
+
+        const CharacterVisual = ({ state, scale = 1, onGrind }) => {
+            const avatar = [...AVATARS.male, ...AVATARS.female].find(a => a.id === state.avatarId) || AVATARS.male[0];
+
+            return html`
+            <div className="relative flex flex-col items-center justify-center transition-all duration-500" style=${{ transform: `scale(${scale})` }}>
+                ${state.assets.car && html`
+                    <div className="absolute top-10 -z-10 animate-in fade-in zoom-in duration-700">
+                        <div className="w-80 h-40 relative flex items-end justify-center mb-4 shadow-2xl rounded-2xl overflow-hidden group">
+                            <div className="absolute inset-0 transition-colors" style=${{ backgroundColor: state.assets.car.color }}></div>
+                            <div className="absolute bottom-2 left-8 w-14 h-14 bg-black rounded-full border-4 border-zinc-500 flex items-center justify-center"><div className="w-6 h-6 bg-zinc-300 rounded-full animate-spin"></div></div>
+                            <div className="absolute bottom-2 right-12 w-14 h-14 bg-black rounded-full border-4 border-zinc-500 flex items-center justify-center"><div className="w-6 h-6 bg-zinc-300 rounded-full animate-spin"></div></div>
+                            <div className="absolute -bottom-8 w-full text-center text-[10px] font-black uppercase tracking-widest opacity-50 text-white drop-shadow-md">${state.assets.car.name}</div>
+                        </div>
+                    </div>
+                `}
+                <div className="relative z-10 animate-float flex flex-col items-center group cursor-pointer animate-breathe animate-sway" onClick=${onGrind}>
+                    <div className="w-24 h-24 bg-[#ffdbac] rounded-full relative z-30 shadow-2xl overflow-visible border-2 border-white/5 flex flex-col items-center">
+                        ${avatar.render()}
+                        <div className="flex justify-around mt-12 px-6 w-full">
+                            <div className="w-2.5 h-2.5 bg-black rounded-full" />
+                            <div className="w-2.5 h-2.5 bg-black rounded-full" />
+                        </div>
+                    </div>
+                    <div className="w-8 h-6 bg-[#ffdbac] relative z-20 -mt-2">
+                        ${state.assets.chain && html`<div className="absolute top-3 left-[-12px] right-[-12px] h-10 rounded-b-full border-b-[6px] drop-shadow-lg" style=${{ borderColor: state.assets.chain.color }} />`}
+                    </div>
+                    <div className="w-32 h-36 bg-zinc-800 rounded-t-[40px] relative z-10 shadow-xl border-t border-white/10 flex flex-col items-center bg-gradient-to-b from-zinc-700 to-zinc-900 overflow-hidden">
+                         ${state.assets.house && html`<div className="absolute inset-0 opacity-10 flex items-center justify-center"><${Lucide.Home} size=${64} /></div>`}
+                         <div className="mt-6 text-[9px] font-black uppercase tracking-[0.2em] text-white/30 text-center">Protocol<br/>Identity</div>
+                         <div className="absolute top-10 -right-4 w-10 h-10 bg-[#ffdbac] rounded-full flex items-center justify-center border border-black/10 shadow-lg">
+                            ${state.assets.ring && html`<div className="w-5 h-5 rounded-full border-[3px]" style=${{ borderColor: state.assets.ring.color }} />`}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `;
+        };
+
+        const ChowGameComponent = ({ onWin, onExit }) => {
+            const [player, setPlayer] = useState({ x: 50, y: 0, dy: 0 }); 
+            const [keys, setKeys] = useState({});
+            const platforms = useRef([
+                { x: 0, y: 0, w: 100 },
+                { x: 30, y: 20, w: 25 },
+                { x: 10, y: 40, w: 20 },
+                { x: 60, y: 55, w: 20 },
+                { x: 20, y: 75, w: 20 },
+                { x: 50, y: 90, w: 15 }
+            ]);
+            const requestRef = useRef();
+
+            useEffect(() => {
+                const loop = () => {
+                    setPlayer(p => {
+                        let { x, y, dy } = p;
+                        if (keys['ArrowLeft']) x -= 1.5;
+                        if (keys['ArrowRight']) x += 1.5;
+                        dy -= 0.35;
+                        if(dy < -3) dy = -3;
+                        y += dy;
+                        let isGrounded = false;
+                        if (y <= 0) { y = 0; dy = 0; isGrounded = true; }
+                        if (dy <= 0) { 
+                            platforms.current.forEach(plat => {
+                                if (x + 5 >= plat.x && x - 5 <= plat.x + plat.w) {
+                                    if (y >= plat.y - 1 && y <= plat.y + 4) {
+                                        y = plat.y; dy = 0; isGrounded = true;
+                                    }
+                                }
+                            });
+                        }
+                        if (keys['Space'] && isGrounded) dy = 5.0;
+                        if (x < 0) x = 0; if (x > 90) x = 90;
+                        if (y > 90) onWin();
+                        return { x, y, dy };
+                    });
+                    requestRef.current = requestAnimationFrame(loop);
+                };
+                requestRef.current = requestAnimationFrame(loop);
+                return () => cancelAnimationFrame(requestRef.current);
+            }, [keys]);
+
+            const handleDown = (k) => setKeys(prev => ({...prev, [k]: true}));
+            const handleUp = (k) => setKeys(prev => ({...prev, [k]: false}));
+
+            return html`
+                <div className="h-64 bg-zinc-900 rounded-3xl relative overflow-hidden border border-white/10 select-none">
+                    <div className="game-player" style=${{ bottom: `${player.y}%`, left: `${player.x}%` }} />
+                    ${platforms.current.map((p, i) => html`<div key=${i} className="game-platform" style=${{ bottom: `${p.y}%`, left: `${p.x}%`, width: `${p.w}%` }} />`)}
+                    <div className="absolute bottom-2 left-2 right-2 flex justify-between z-20">
+                        <button className="p-4 bg-white/10 rounded-full" onMouseDown=${() => handleDown('ArrowLeft')} onMouseUp=${() => handleUp('ArrowLeft')} onTouchStart=${() => handleDown('ArrowLeft')} onTouchEnd=${() => handleDown('ArrowLeft')}><${Lucide.ArrowLeft} /></button>
+                        <button className="p-4 bg-green-600 rounded-full" onMouseDown=${() => handleDown('Space')} onMouseUp=${() => handleUp('Space')} onTouchStart=${() => handleDown('Space')} onTouchEnd=${() => handleDown('Space')}>JUMP</button>
+                        <button className="p-4 bg-white/10 rounded-full" onMouseDown=${() => handleDown('ArrowRight')} onMouseUp=${() => handleUp('ArrowRight')} onTouchStart=${() => handleDown('ArrowRight')} onTouchEnd=${() => handleDown('ArrowRight')}><${Lucide.ArrowRight} /></button>
+                    </div>
+                </div>
+            `;
+        };
+
+        const ChowSappComponent = ({ family, friends, interact, addFriend }) => {
+            const [tab, setTab] = useState('family');
+            const [contact, setContact] = useState(null);
+            const person = contact !== null ? (tab === 'family' ? family[contact] : friends[contact]) : null;
+
+            if (contact !== null && person) return html`
+                <div className="flex flex-col h-full">
+                    <button onClick=${() => setContact(null)} className="flex items-center gap-2 mb-4 font-bold"><${Lucide.ChevronLeft} /> Back</button>
+                    <div className="flex-1 space-y-4 overflow-y-auto mb-4 p-2 bg-black/20 rounded-xl">
+                        <div className="chat-bubble-them">Hey! I'm ${person.name}. Let's hang out.</div>
+                        <div className="chat-bubble-them">Relationship: ${person.rel}%</div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button onClick=${() => interact(tab, contact, 'chat')} className="p-4 bg-green-600 rounded-xl text-xs font-bold">Chat (+Rel)</button>
+                        <button onClick=${() => interact(tab, contact, 'money')} className="p-4 bg-zinc-700 rounded-xl text-xs font-bold">Ask £50</button>
+                    </div>
+                </div>
+            `;
+            return html`
+                <div className="space-y-4">
+                    <div className="flex p-1 bg-white/10 rounded-xl">
+                        <button onClick=${() => setTab('family')} className=${`flex-1 py-2 text-xs font-bold rounded-lg ${tab === 'family' ? 'bg-zinc-600' : ''}`}>Family</button>
+                        <button onClick=${() => setTab('friends')} className=${`flex-1 py-2 text-xs font-bold rounded-lg ${tab === 'friends' ? 'bg-zinc-600' : ''}`}>Friends</button>
+                    </div>
+                    ${tab === 'family' ? Object.keys(family).map(k => html`<button key=${k} onClick=${() => setContact(k)} className="w-full p-4 glass rounded-2xl flex items-center gap-4"><div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center font-bold">${family[k].name[0]}</div><div className="text-left font-bold">${family[k].name}</div></button>`)
+                    : html`<button onClick=${addFriend} className="w-full p-4 bg-blue-600/20 border border-blue-500/50 rounded-2xl font-bold">+ New Friend</button>${friends.map((f, i) => html`<button key=${i} onClick=${() => setContact(i)} className="w-full p-4 glass rounded-2xl flex items-center gap-4"><div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center font-bold">${f.name[0]}</div><div className="text-left font-bold">${f.name}</div></button>`)}`}
+                </div>
+            `;
+        };
+
+        const ChowReviewsComponent = ({ installedApps, ratings, onRate }) => html`
+             <div className="space-y-4">
+                <div className="p-4 text-center">
+                    <h2 className="text-xl font-black italic">CHOWREVIEWS</h2>
+                    <p className="text-[10px] opacity-50 uppercase font-black">Community Feedback</p>
+                </div>
+                <div className="space-y-2 px-2">
+                    ${installedApps.map(app => html`
+                        <div key=${app} className="glass p-4 rounded-2xl flex flex-col gap-3 border border-white/5">
+                            <div className="flex justify-between items-center"><span className="font-bold uppercase text-xs">${app}</span><span className="text-[10px] font-black text-yellow-500">${ratings[app] ? ratings[app] + '/5' : 'Unrated'}</span></div>
+                            <div className="flex gap-2 justify-center bg-black/20 p-2 rounded-xl">
+                                ${[1,2,3,4,5].map(star => html`<button key=${star} onClick=${() => onRate(app, star)} className=${ratings[app] >= star ? "text-yellow-400" : "text-white/10"}><${Lucide.Star} size=${20} fill=${ratings[app] >= star ? "currentColor" : "none"} /></button>`)}
+                            </div>
+                        </div>
+                    `)}
+                </div>
+            </div>
+        `;
+
+        function App() {
+            const [state, setState] = useState(() => {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                return saved ? JSON.parse(saved) : getInitialState();
+            });
+            const [view, setView] = useState('home');
+            const [shopTab, setShopTab] = useState('phones');
+            const [academyTab, setAcademyTab] = useState('education');
+            const [phoneApp, setPhoneApp] = useState(null);
+            const [phoneFolder, setPhoneFolder] = useState(null);
+            const [pinInput, setPinInput] = useState('');
+            const [pinError, setPinError] = useState(false);
+            const [pinResetMode, setPinResetMode] = useState(null);
+            const [isSignInModalOpen, setSignInModalOpen] = useState(false);
+            const [signInName, setSignInName] = useState('');
+            const [signInEmail, setSignInEmail] = useState('');
+            const [appStoreCategory, setAppStoreCategory] = useState('All');
+
+            useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }, [state]);
+
+            const logSerious = (msg) => {
+                const id = Date.now();
+                setState(p => ({ 
+                    ...p, 
+                    notifications: [{ id, msg, serious: true }, ...p.notifications].slice(0, 5),
+                    logs: [{ id, msg, type: 'error' }, ...p.logs].slice(0, 4)
+                }));
+                setTimeout(() => {
+                    setState(p => ({
+                        ...p,
+                        notifications: p.notifications.filter(n => n.id !== id)
+                    }));
+                }, 3000);
+            };
+
+            const log = (msg, serious = false) => {
+                if (serious) return logSerious(msg);
+                const id = Date.now();
+                setState(p => ({ 
+                    ...p, 
+                    notifications: [{ id, msg, serious: false }, ...p.notifications].slice(0, 5),
+                    logs: [{ id, msg, type: 'info' }, ...p.logs].slice(0, 4)
+                }));
+                setTimeout(() => {
+                    setState(p => ({
+                        ...p,
+                        notifications: p.notifications.filter(n => n.id !== id)
+                    }));
+                }, 3000);
+            };
+
+            const processPenalty = () => {
+                if (state.age >= 16 && !state.assets.house) {
+                    setState(p => {
+                        const newH = Math.max(0, p.health - 1);
+                        const newA = Math.max(0, p.happiness - 1);
+                        return { ...p, health: newH, happiness: newA, isDead: newH <= 0 || newA <= 0 };
+                    });
+                }
+            };
+
+            const grind = () => { 
+                if(state.isDead) return;
+                processPenalty();
+                
+                let nextWeek = state.week + 1;
+                let nextAge = state.age;
+                if(nextWeek > 52) { nextWeek = 1; nextAge++; }
+                let newHealth = Math.max(0, state.health - 3);
+                let newHappy = Math.max(0, state.happiness - 3);
+                let currentMoney = state.money;
+                let jobUpdate = state.job ? { ...state.job } : null;
+
+                if (jobUpdate) {
+                    // Performance change logic
+                    const perfChange = Math.floor(Math.random() * 15) - 5; // -5 to +10 change
+                    jobUpdate.performance = Math.min(100, Math.max(0, (jobUpdate.performance || 50) + perfChange));
+                    
+                    // Promotion check
+                    if (jobUpdate.performance >= 100) {
+                        jobUpdate.salary = Math.floor(jobUpdate.salary * 1.2);
+                        jobUpdate.performance = 50; // Reset after promotion
+                        log("PROMOTED! Salary increased to £" + jobUpdate.salary, true);
+                    } 
+                    // Firing check
+                    else if (jobUpdate.performance <= 0) {
+                        log("FIRED! Performance dropped to 0.", true);
+                        jobUpdate = null;
+                    }
+                }
+
+                const salary = jobUpdate ? jobUpdate.salary : 20; // 20 is street hustling
+                currentMoney += salary;
+
+                setState(p => ({ 
+                    ...p, 
+                    week: nextWeek, 
+                    age: nextAge, 
+                    money: currentMoney, 
+                    health: newHealth, 
+                    happiness: newHappy, 
+                    job: jobUpdate,
+                    isDead: newHealth <= 0 || newHappy <= 0 
+                }));
+                
+                if (jobUpdate) {
+                    log('Worked 1 Week. Earned £' + salary);
+                } else if (!state.job) {
+                    log('Scavenged 1 Week. Earned £20');
+                }
+            };
+
+            const advanceTime = (weeks = 1) => {
+                 setState(prev => {
+                    let nextWeek = prev.week + weeks;
+                    let nextAge = prev.age;
+                    let nextHealth = prev.health;
+                    let nextHappiness = prev.happiness;
+                    let nextMoney = prev.money;
+                    while (nextWeek > 52) { nextWeek -= 52; nextAge += 1; }
+                    nextHealth = Math.max(0, nextHealth - (0.5 * weeks));
+                    nextHappiness = Math.max(0, nextHappiness - (0.5 * weeks));
+                    const isDead = nextHealth <= 0 || nextHappiness <= 0;
+                    return { ...prev, week: nextWeek, age: nextAge, health: nextHealth, happiness: nextHappiness, money: nextMoney, isDead: isDead };
+                 });
+                 log('Time passed: ' + weeks + ' weeks', true);
+            };
+
+            const study = (type, subject = null) => {
+                if(state.isDead) return;
+                if (type === 'subject') {
+                    if (state.education.subjects[subject] >= 120) return;
+                    if (state.money < 10) { log('Need £10', true); return; }
+                    setState(prev => {
+                         let nextWeek = prev.week + 1;
+                         let nextAge = prev.age;
+                         if(nextWeek > 52) { nextWeek = 1; nextAge++; }
+                         const newHealth = Math.max(0, prev.health - 3);
+                         const newHappy = Math.max(0, prev.happiness - 3);
+                         return { ...prev, money: prev.money - 10, week: nextWeek, age: nextAge, health: newHealth, happiness: newHappy, education: { ...prev.education, subjects: { ...prev.education.subjects, [subject]: Math.min(120, (prev.education.subjects[subject] || 0) + 1) } }, isDead: newHealth <= 0 || newHappy <= 0 };
+                    });
+                    log(`Studied ${subject}`, true);
+                } else if (type === 'primary') {
+                    if (state.education.primary >= 60) return;
+                    setState(prev => {
+                         let nextWeek = prev.week + 1;
+                         let nextAge = prev.age;
+                         if(nextWeek > 52) { nextWeek = 1; nextAge++; }
+                         return { ...prev, money: prev.money + 10, week: nextWeek, age: nextAge, health: Math.min(100, prev.health + 3), happiness: Math.min(100, prev.happiness + 3), education: { ...prev.education, primary: Math.min(60, prev.education.primary + 1) } };
+                    });
+                    log('Primary Education Step Complete', true);
+                } else if (type === 'secondary') {
+                    if (state.education.secondary >= 60) return;
+                    if (state.education.primary < 60) { log('Req Primary 60%', true); return; }
+                    setState(prev => {
+                         let nextWeek = prev.week + 1;
+                         let nextAge = prev.age;
+                         if(nextWeek > 52) { nextWeek = 1; nextAge++; }
+                         return { ...prev, money: prev.money + 5, week: nextWeek, age: nextAge, health: Math.min(100, prev.health + 3), happiness: Math.min(100, prev.happiness + 3), education: { ...prev.education, secondary: Math.min(60, prev.education.secondary + 1) } };
+                    });
+                    log('Secondary Education Step Complete', true);
+                }
+            };
+
+            const purchase = (category, item) => {
+                if (category === 'wellness') {
+                    if (state.money < item.price) { log('No Funds!', true); return; }
+                    setState(p => ({ 
+                        ...p, 
+                        money: p.money - item.price, 
+                        health: Math.min(100, p.health + item.health), 
+                        happiness: Math.min(100, p.happiness + item.happy) 
+                    }));
+                    log('Used ' + item.name, true);
+                    return;
+                }
+                if (state.assets[category]?.id === item.id) { log('Current Gear', false); return; }
+                const alreadyHaveInInventory = state.ownedAssets.find(o => o.id === item.id);
+                if (alreadyHaveInInventory) {
+                    setState(p => ({ ...p, assets: { ...p.assets, [category]: item } }));
+                    log('Equipped: ' + item.name, true);
+                    return;
+                }
+                if (state.money < item.price) { log('No Funds!', true); return; }
+                setState(p => ({ 
+                    ...p, 
+                    money: p.money - item.price, 
+                    assets: { ...p.assets, [category]: item },
+                    ownedAssets: [...p.ownedAssets, item]
+                }));
+                log('Purchased: ' + item.name, true);
+            };
+
+            const steal = (item, type) => {
+                const chance = item.price > 5000 ? 0.9 : 0.3;
+                if (Math.random() < chance) { 
+                    setState(p => ({...p, jail: { isJailed: true, clicks: 12 }})); 
+                    log('BUSTED!', true);
+                } else { 
+                    setState(p => ({ 
+                        ...p, 
+                        assets: { ...p.assets, [type]: item },
+                        ownedAssets: [...p.ownedAssets, item]
+                    })); 
+                    log('Stole: ' + item.name + '!', true);
+                }
+            };
+
+            const escapeJail = () => {
+                setState(p => {
+                    const nextClicks = p.jail.clicks - 1;
+                    const nextHealth = p.health - 3;
+                    if (nextClicks <= 0) return { ...p, jail: { isJailed: false, clicks: 0 }, health: nextHealth, isDead: nextHealth <= 0 };
+                    return { ...p, health: nextHealth, jail: { ...p.jail, clicks: nextClicks }, isDead: nextHealth <= 0 };
+                });
+            };
+
+            const installApp = (app) => {
+                if (state.money < app.price) { log('No money', true); return; }
+                setState(p => ({ ...p, money: p.money - app.price, installedApps: [...new Set([...p.installedApps, app.name])] }));
+                log(`Installed ${app.name}`, true);
+            };
+
+            const buyWallpaper = (w) => {
+                if (state.money < w.price) { log('No money', true); return; }
+                setState(p => ({ ...p, money: p.money - w.price, phoneBg: w.class, ownedWallpapers: [...new Set([...p.ownedWallpapers, w.class])] }));
+                log('Wallpaper Applied', true);
+            };
+
+            const performSignIn = () => {
+                setState(p => ({ ...p, settings: { accountName: signInName, accountEmail: signInEmail } }));
+                setSignInModalOpen(false);
+                log('Identity Verified', true);
+            };
+
+            // Organized Folders
+            const APP_FOLDERS = [
+                { id: 'f1', name: 'Social', apps: ['ChowSapp', 'ChowReviews', 'ChowTube'], icon: Lucide.Users, color: 'bg-green-500/20' },
+                { id: 'f2', name: 'Tools', apps: ['ChowBank', 'Chow AI', 'Chow Settings'], icon: Lucide.Tool, color: 'bg-blue-500/20' },
+                { id: 'f3', name: 'Games', apps: ['ChowGame'], icon: Lucide.Play, color: 'bg-orange-500/20' }
+            ];
+
+            if (state.isDead) return html`<div className="fixed inset-0 z-[60] bg-red-900/90 flex flex-col items-center justify-center p-10 text-center space-y-8 animate-in fade-in duration-1000"><div className="text-9xl">💀</div><h1 className="text-7xl font-black text-white italic tracking-tighter uppercase">WASTED</h1><button onClick=${() => { localStorage.removeItem(STORAGE_KEY); window.location.reload(); }} className="px-12 py-5 bg-white text-black rounded-full font-black text-2xl shadow-2xl active:scale-95 transition-transform">START OVER</button></div>`;
+
+            if (state.jail.isJailed) return html`<div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-8 text-center space-y-8 animate-in zoom-in duration-300"><div className="text-7xl animate-bounce">🚓</div><h1 className="text-5xl font-black text-red-600 italic uppercase">BUSTED!</h1><div className="text-3xl font-black tracking-widest">${state.jail.clicks} STEPS TO FREEDOM</div><button onClick=${escapeJail} className="w-full py-8 bg-red-600 rounded-[40px] font-black text-3xl shadow-xl active:scale-95">ESCAPE (-3 HP)</button><div className="w-full bg-zinc-800 h-3 rounded-full overflow-hidden border border-white/10"><div className="h-full bg-red-500 transition-all duration-300" style=${{width: `${state.health}%`}} /></div></div>`;
+
+            if (!state.hasStarted) return html`
+                <div className="h-screen bg-black flex flex-col items-center justify-center p-6 animate-in fade-in">
+                    <h1 className="text-6xl font-black italic mb-8 text-blue-500 tracking-tighter text-center">CHOW SIM</h1>
+                    <div className="w-full max-w-sm space-y-6 bg-zinc-900/80 p-8 rounded-[40px] border border-white/10 shadow-2xl backdrop-blur-xl">
+                        <div>
+                            <label className="text-xs font-black uppercase ml-4 opacity-50">Name</label>
+                            <input className="w-full bg-white/5 p-4 rounded-[20px] text-center font-black uppercase text-white outline-none border border-white/5 focus:border-blue-500 transition-colors mt-1" placeholder="ENTER NAME" value=${state.name} onChange=${e => setState(p => ({...p, name: e.target.value}))} />
+                        </div>
+                        
+                        <div>
+                            <label className="text-xs font-black uppercase ml-4 opacity-50">Gender</label>
+                            <div className="flex gap-2 mt-1">
+                                <button onClick=${() => setState(p => ({...p, gender: 'male', avatarId: 'm1'}))} className=${`flex-1 py-4 rounded-[20px] font-black uppercase text-xs ${state.gender === 'male' ? 'bg-blue-600 text-white' : 'bg-white/5 text-white/30'}`}>MALE</button>
+                                <button onClick=${() => setState(p => ({...p, gender: 'female', avatarId: 'f1'}))} className=${`flex-1 py-4 rounded-[20px] font-black uppercase text-xs ${state.gender === 'female' ? 'bg-pink-600 text-white' : 'bg-white/5 text-white/30'}`}>FEMALE</button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-black uppercase ml-4 opacity-50">Avatar Style</label>
+                            <div className="grid grid-cols-5 gap-2 mt-2">
+                                ${AVATARS[state.gender].map(av => html`
+                                    <button key=${av.id} onClick=${() => setState(p => ({...p, avatarId: av.id}))} className=${`aspect-square rounded-full border-2 flex items-center justify-center relative overflow-hidden bg-[#ffdbac] ${state.avatarId === av.id ? 'border-blue-500 scale-110 shadow-lg' : 'border-transparent opacity-50'}`}>
+                                        <div className="scale-[0.4] origin-top translate-y-2">${av.render()}</div>
+                                    </button>
+                                `)}
+                            </div>
+                        </div>
+
+                        <button className="w-full bg-white text-black p-5 rounded-[25px] font-black text-xl uppercase italic shadow-2xl active:scale-95 transition-transform mt-4" onClick=${() => state.name && setState(p => ({...p, hasStarted: true}))}>START LIFE</button>
+                    </div>
+                </div>
+            `;
+
+            return html`
+                <div className="min-h-screen flex flex-col relative text-white bg-black">
+                    <header className="px-6 pt-12 pb-4 glass sticky top-0 z-40 border-b border-white/5 flex justify-between items-center backdrop-blur-3xl">
+                        <div>
+                            <div className="text-2xl font-black tracking-tighter uppercase italic truncate max-w-[150px]">${state.name}</div>
+                            <div className="text-[10px] opacity-40 font-black tracking-widest">AGE ${state.age} / WEEK ${state.week}</div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5">
+                            <div className="text-2xl font-black text-emerald-500 italic leading-none">£${state.money.toLocaleString()}</div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-24 bg-zinc-800 rounded-full h-4 relative overflow-hidden border border-white/10">
+                                    <div className="h-full bg-blue-500 transition-all duration-500" style=${{width: `${state.health}%`}}></div>
+                                    <div className="absolute inset-0 flex items-center justify-center text-[8px] font-black">${state.health.toFixed(0)}%</div>
+                                </div>
+                                <div className="bg-red-500 p-1 rounded-lg shadow-lg"><${Lucide.Heart} size=${12} fill="white" /></div>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-24 bg-zinc-800 rounded-full h-4 relative overflow-hidden border border-white/10">
+                                    <div className="h-full bg-yellow-400 transition-all duration-500" style=${{width: `${state.happiness}%`}}></div>
+                                    <div className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-black">${state.happiness.toFixed(0)}%</div>
+                                </div>
+                                <div className="bg-yellow-400 p-1 rounded-lg shadow-lg"><${Lucide.Smile} size=${12} /></div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 overflow-y-auto p-5 pb-40 no-scrollbar">
+                        ${view === 'home' && html`<div className="space-y-6">
+                            <div className="glass p-12 rounded-[60px] flex flex-col items-center ios-shadow border border-white/5">
+                                <${CharacterVisual} state=${state} scale=${1.4} onGrind=${grind} />
+                                <div className="text-lg font-black mt-10 px-12 py-4 glass rounded-full shadow-2xl border border-white/10 uppercase italic tracking-widest text-blue-400">${state.job ? state.job.name : 'STREET LIVING'}</div>
+                                ${state.job && html`
+                                    <div className="w-full max-w-[200px] mt-4 space-y-1">
+                                        <div className="flex justify-between text-[8px] font-black uppercase opacity-60"><span>Performance</span><span>${state.job.performance || 50}%</span></div>
+                                        <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden border border-white/5">
+                                            <div className="h-full bg-purple-500 transition-all duration-300" style=${{width: `${state.job.performance || 50}%`}} />
+                                        </div>
+                                    </div>
+                                `}
+                            </div>
+                            ${state.age >= 16 && !state.assets.house && html`<div className="p-5 glass border border-red-500/50 bg-red-900/10 rounded-[30px] text-[10px] font-black text-red-200 uppercase tracking-widest text-center animate-pulse">⚠️ HOMELESS: HP/HAPPY DROPPING PER ACTION ⚠️</div>`}
+                            <div className="space-y-2">${state.logs.map(l => html`<div key=${l.id} className="p-4 glass rounded-3xl text-[10px] font-bold italic border border-white/5"><span className=${l.type === 'error' ? 'text-red-500' : 'text-emerald-500'}>▶ </span> ${l.msg}</div>`)}</div>
+                        </div>`}
+
+                        ${view === 'academy' && html`<div className="space-y-6">
+                            <div className="flex gap-2"><button onClick=${() => setAcademyTab('education')} className=${`flex-1 py-3 rounded-2xl font-black text-xs uppercase ${academyTab === 'education' ? 'bg-white text-black' : 'glass'}`}>Education</button><button onClick=${() => setAcademyTab('jobs')} className=${`flex-1 py-3 rounded-2xl font-black text-xs uppercase ${academyTab === 'jobs' ? 'bg-white text-black' : 'glass'}`}>Jobs</button></div>
+                            ${academyTab === 'education' ? html`<div className="space-y-4">
+                                <div className="glass p-6 rounded-[35px] border border-white/5 flex justify-between items-center"><div><div className="font-black text-lg">Primary</div><div className="text-[10px] opacity-40 uppercase font-black text-emerald-400">Max 60%</div></div><button onClick=${() => study('primary')} className="px-6 py-2 bg-blue-600 rounded-full font-black text-[10px]" disabled=${state.education.primary >= 60}>${state.education.primary >= 60 ? 'FINISHED' : `STUDY (${state.education.primary}/60)`}</button></div>
+                                <div className="glass p-6 rounded-[35px] border border-white/5 flex justify-between items-center"><div><div className="font-black text-lg">Secondary</div><div className="text-[10px] opacity-40 uppercase font-black text-emerald-400">Max 60%</div></div><button onClick=${() => study('secondary')} className="px-6 py-2 bg-indigo-600 rounded-full font-black text-[10px]" disabled=${state.education.secondary >= 60}>${state.education.secondary >= 60 ? 'FINISHED' : `STUDY (${state.education.secondary}/60)`}</button></div>
+                                <div className="grid grid-cols-2 gap-3 mt-4">${SUBJECTS.map(s => html`<button key=${s} onClick=${() => study('subject', s)} disabled=${state.education.subjects[s] >= 120} className="p-5 glass rounded-[30px] text-left border border-white/5 disabled:opacity-50"><div className="text-xs font-black uppercase tracking-tighter">${s}</div><div className="text-[9px] opacity-40 uppercase font-black text-red-400">-£10 / -3 HP</div><div className="text-[9px] font-bold text-blue-400">${state.education.subjects[s] >= 120 ? 'FINISHED' : `${state.education.subjects[s]}/120`}</div></button>`)}</div>
+                            </div>` : html`<div className="space-y-4">${JOBS.map(j => html`<button key=${j.id} onClick=${() => { if(state.age < j.minAge) return log('Too young', true); setState(p => ({...p, job: { ...j, performance: 50, promotions: 0 }})); log('Hired as ' + j.name, true); }} className="p-6 glass rounded-[35px] w-full text-left border border-white/5"><div className="flex justify-between items-center"><div className="font-black text-lg italic uppercase">${j.name}</div><div className="text-emerald-500 font-black">£${j.salary}/WK</div></div><div className="text-[9px] opacity-50 uppercase mt-1 font-black">AGE ${j.minAge}+</div></button>`)}</div>`}
+                        </div>`}
+
+                        ${view === 'shop' && html`<div className="space-y-6">
+                            <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar">${['phones', 'houses', 'cars', 'chains', 'rings', 'wellness', 'time'].map(t => html`<button key=${t} onClick=${() => setShopTab(t)} className=${`px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${shopTab === t ? 'bg-white text-black scale-105' : 'glass opacity-50'}`}>${t}</button>`)}</div>
+                            <div className="grid gap-4">
+                                ${shopTab === 'time' && html`<button onClick=${() => advanceTime(5)} className="p-10 glass rounded-[40px] flex flex-col items-center justify-center border border-white/10 bg-red-900/10 shadow-2xl active:scale-95 transition-transform"><${Lucide.Clock} size=${48} className="mb-4 text-red-500" /><div className="font-black text-xl uppercase italic">SKIP 5 WEEKS</div><div className="text-xs opacity-50 font-black uppercase mt-2 tracking-widest">Wastes life but gives passive income</div></button>`}
+                                ${shopTab === 'wellness' && WELLNESS.map(w => html`<button key=${w.id} onClick=${() => purchase('wellness', w)} className="p-6 glass rounded-[40px] flex justify-between items-center border border-white/5 shadow-xl"><div><div className="font-black uppercase italic">${w.name}</div><div className="text-[10px] opacity-50 font-black text-emerald-400">+${w.health} HP / +${w.happy} HAPPY</div></div><div className="text-emerald-500 font-black">£${w.price}</div></button>`)}
+                                ${(shopTab === 'phones' ? PHONES : shopTab === 'cars' ? CARS : shopTab === 'houses' ? HOUSES : shopTab === 'chains' ? CHAINS : RINGS).map(i => i && html`
+                                    <div key=${i.id} className="p-6 glass rounded-[40px] flex justify-between items-center border border-white/5 shadow-xl transition-all">
+                                        <div><div className="font-black italic uppercase text-sm">${i.name}</div><div className="text-[10px] opacity-40 font-black tracking-widest">£${i.price.toLocaleString()}</div></div>
+                                        <div className="flex gap-2">
+                                            <button onClick=${() => steal(i, i.type || shopTab.slice(0, -1))} className="px-3 py-2 bg-red-900/40 rounded-full font-black text-[8px] text-red-300 border border-red-500/20">STEAL</button>
+                                            <button onClick=${() => purchase(i.type || shopTab.slice(0, -1), i)} className="px-6 py-2 bg-emerald-600 rounded-full font-black text-[10px] uppercase min-w-[80px]">
+                                                ${state.assets[i.type || shopTab.slice(0, -1)]?.id === i.id ? 'OWNED' : (state.ownedAssets.find(o => o.id === i.id) ? 'TAKE' : 'BUY')}
+                                            </button>
+                                        </div>
+                                    </div>`)}
+                            </div>
+                        </div>`}
+
+                        ${view === 'phone' && html`<div className=${`h-full rounded-[45px] overflow-hidden ${state.phoneBg} transition-all relative border-[6px] border-zinc-900 shadow-2xl`}>
+                            ${!phoneApp ? html`<div className="p-8 h-full flex flex-col items-center">
+                                <div className="mt-8 text-6xl font-thin tracking-tighter italic text-white drop-shadow-lg mb-10">14:20</div>
+                                
+                                <!-- Organized Folders & Quick Launch -->
+                                <div className="grid grid-cols-4 gap-4 w-full">
+                                    ${APP_FOLDERS.map(folder => html`<button key=${folder.id} onClick=${() => setPhoneFolder(folder)} className="flex flex-col items-center gap-1.5 group">
+                                        <div className=${`w-14 h-14 rounded-3xl ${folder.color} flex flex-wrap p-2 gap-1.5 backdrop-blur-md group-active:scale-90 transition-transform`}>
+                                            ${folder.apps.slice(0, 4).map(appName => {
+                                                const a = APPS.find(app => app.name === appName) || { color: 'bg-zinc-600' };
+                                                return html`<div key=${appName} className=${`w-4 h-4 rounded-sm ${a.color}`} />`;
+                                            })}
+                                        </div>
+                                        <span className="text-[9px] font-black uppercase text-white drop-shadow-md tracking-tighter">${folder.name}</span>
+                                    </button>`)}
+                                    
+                                    <button onClick=${() => setPhoneApp('App Store')} className="flex flex-col items-center gap-1.5 group">
+                                        <div className="w-14 h-14 rounded-3xl bg-blue-500 flex items-center justify-center shadow-lg group-active:scale-90 transition-transform"><${Lucide.ShoppingBag} size={24} /></div>
+                                        <span className="text-[9px] font-black uppercase text-white drop-shadow-md tracking-tighter">Market</span>
+                                    </button>
+                                </div>
+
+                                <!-- Floating Serious Notifications -->
+                                <div className="absolute top-4 left-4 right-4 space-y-2 pointer-events-none z-[70]">
+                                    ${state.notifications.map(n => html`<div key=${n.id} className=${`p-4 glass rounded-2xl border animate-in slide-in-from-top duration-500 backdrop-blur-2xl shadow-2xl ${n.serious ? 'border-red-500/50 bg-red-900/20' : 'border-white/10 bg-white/5'}`}>
+                                        <div className="flex items-center gap-2 mb-1.5"><div className=${`w-2 h-2 rounded-full ${n.serious ? 'bg-red-500' : 'bg-blue-400'}`} /> <span className="text-[9px] font-black uppercase tracking-widest opacity-40">System Message</span></div>
+                                        <div className="text-[11px] font-bold text-white">${n.msg}</div>
+                                    </div>`)}
+                                </div>
+
+                                ${phoneFolder && html`<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-200" onClick=${() => setPhoneFolder(null)}>
+                                    <div className="bg-zinc-900/60 p-10 rounded-[50px] w-full max-w-sm border border-white/10 relative shadow-2xl" onClick=${e => e.stopPropagation()}>
+                                        <button onClick=${() => setPhoneFolder(null)} className="absolute top-6 right-6 text-white/40"><${Lucide.X} /></button>
+                                        <h3 className="text-center font-black text-white uppercase italic mb-10 tracking-widest opacity-50 text-sm">${phoneFolder.name}</h3>
+                                        <div className="grid grid-cols-3 gap-10">
+                                            ${phoneFolder.apps.map(appName => {
+                                                const appData = APPS.find(a => a.name === appName) || { icon: Lucide.Box, color: 'bg-gray-500' };
+                                                if (appName === 'Chow Settings') appData.icon = Lucide.Settings;
+                                                const r = state.appRatings[appName];
+                                                return html`<button onClick=${() => { 
+                                                    if(appName === 'ChowGame') setState(p => ({...p, hairType: Math.random() > 0.5 ? 'curly' : 'straight'}));
+                                                    setPhoneApp(appName); setPhoneFolder(null); 
+                                                }} className="flex flex-col items-center gap-3 group relative">
+                                                    <div className=${`w-16 h-16 rounded-[24px] flex items-center justify-center shadow-2xl ${appData.color} relative group-active:scale-90 transition-transform`}>
+                                                        <${appData.icon} size=${32} />
+                                                        ${r > 0 && html`<div className="absolute -top-1 -right-1 bg-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] font-black text-black border-2 border-zinc-900">${r}★</div>`}
+                                                    </div>
+                                                    <span className="text-[10px] font-black text-white uppercase truncate w-16 text-center">${appName}</span>
+                                                </button>`;
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>`}
+                            </div>` : html`<div className="h-full bg-black/98 flex flex-col">
+                                <header className="p-6 border-b border-white/5 flex items-center justify-between glass backdrop-blur-3xl"><button onClick=${() => setPhoneApp(null)} className="text-blue-500"><${Lucide.ChevronLeft} /></button><div className="font-black uppercase text-xs italic tracking-widest text-zinc-400">${phoneApp}</div><div className="w-8" /></header>
+                                <div className="flex-1 p-6 overflow-y-auto no-scrollbar">
+                                    ${phoneApp === 'ChowReviews' && html`<${ChowReviewsComponent} installedApps=${state.installedApps} ratings=${state.appRatings} onRate=${(app, r) => setState(p => ({...p, appRatings: {...p.appRatings, [app]: r}}))} />`}
+                                    ${phoneApp === 'App Store' && html`<div className="space-y-6">
+                                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">${['All', 'Social', 'Finance', 'Entertainment', 'Productivity'].map(cat => html`<button onClick=${() => setAppStoreCategory(cat)} className=${`px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${appStoreCategory === cat ? 'bg-white text-black' : 'bg-white/5 opacity-50'}`}>{cat}</button>`)}</div>
+                                        <div className="space-y-3">
+                                            ${APPS.filter(a => !state.installedApps.includes(a.name) && (appStoreCategory === 'All' || a.category === appStoreCategory)).map(a => html`
+                                                <div key=${a.id} className="w-full p-4 glass rounded-[25px] flex items-center justify-between border border-white/5">
+                                                    <div className="flex items-center gap-4"><div className=${`w-10 h-10 rounded-xl flex items-center justify-center ${a.color}`}><${a.icon} size=${20} /></div><div className="font-black uppercase text-[10px] italic tracking-widest">${a.name}</div></div>
+                                                    <button onClick=${() => installApp(a)} className="bg-blue-600 text-white px-5 py-2 rounded-full text-[10px] font-black uppercase italic shadow-lg shadow-blue-900/50">GET</button>
+                                                </div>`)}
+                                        </div>
+                                        <h3 className="font-black uppercase italic mt-10 text-[10px] tracking-widest opacity-30">Device Styles</h3>
+                                        <div className="grid grid-cols-2 gap-3 pb-10">${WALLPAPERS.map(w => html`<button onClick=${() => buyWallpaper(w)} className="p-4 glass rounded-[35px] border border-white/10 flex flex-col items-center gap-3 active:scale-95 transition-transform"><div className=${`w-full h-20 rounded-2xl ${w.class} border border-white/10 shadow-lg`} /><span className="text-[10px] font-black italic">£${w.price}</span></button>`)}</div>
+                                    </div>`}
+                                    ${phoneApp === 'Chow Settings' && html`<div className="space-y-4">
+                                        ${!state.settings.accountName ? html`<button onClick=${() => setSignInModalOpen(true)} className="w-full p-5 bg-blue-600 rounded-[30px] font-black italic uppercase shadow-xl shadow-blue-900/50 active:scale-95 transition-transform">VERIFY IDENTITY</button>` : html`<div className="p-5 glass rounded-[35px] flex items-center gap-5 border border-blue-500/20"><div className="w-14 h-14 bg-zinc-800 rounded-full flex items-center justify-center font-black text-2xl italic border border-white/5">${state.settings.accountName[0]}</div><div><div className="font-black uppercase italic text-sm">${state.settings.accountName}</div><div className="text-[10px] opacity-40 font-black tracking-widest">${state.settings.accountEmail}</div></div></div>`}
+                                        <button onClick=${() => setState(p => ({...p, phoneLocked: true}))} className="settings-btn glass uppercase italic tracking-widest text-[10px]"><${Lucide.Lock} size=${14} /> LOCK DEVICE</button>
+                                        <button onClick=${() => { localStorage.removeItem(STORAGE_KEY); window.location.reload(); }} className="settings-btn glass text-red-500 uppercase italic tracking-widest text-[10px]"><${Lucide.Trash2} size=${14} /> WIPE MEMORY</button>
+                                        ${isSignInModalOpen && html`<div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-6 backdrop-blur-md"><div className="bg-zinc-900 p-8 rounded-[40px] w-full max-w-sm space-y-5 border border-white/10 shadow-2xl animate-in zoom-in duration-300"><h3 className="font-black text-xl italic uppercase tracking-widest text-center">Cloud Sync</h3><input className="w-full p-5 bg-zinc-800 rounded-3xl text-xs font-black uppercase tracking-widest outline-none border border-white/5" placeholder="DISPLAY NAME" value=${signInName} onChange=${e => setSignInName(e.target.value)} /><input className="w-full p-5 bg-zinc-800 rounded-3xl text-xs font-black uppercase tracking-widest outline-none border border-white/5" placeholder="SECURE EMAIL" value=${signInEmail} onChange=${e => setSignInEmail(e.target.value)} /><div className="flex gap-3 mt-4"><button onClick=${() => setSignInModalOpen(false)} className="flex-1 p-4 bg-zinc-700 rounded-[25px] font-black text-[10px] uppercase">CANCEL</button><button onClick=${performSignIn} className="flex-1 p-4 bg-blue-600 rounded-[25px] font-black text-[10px] uppercase shadow-lg shadow-blue-900/50">SYNC</button></div></div></div>`}
+                                    </div>`}
+                                    ${phoneApp === 'ChowGame' && html`<${ChowGameComponent} onWin=${() => { setState(p => ({...p, money: p.money + 166})); log('MINIGAME SUCCESS! +£166', true); }} />`}
+                                    ${phoneApp === 'ChowSapp' && html`<${ChowSappComponent} family=${state.family} friends=${state.friends} addFriend=${() => { setState(p => ({...p, friends: [...p.friends, {name: 'Contact ' + (p.friends.length+1), rel: 10}]})); log('CONNECTED WITH NEW PEER', true); }} interact=${(tab, contact, type) => { if(type==='money'){ const amt = 50; setState(p=>({...p, money: p.money+amt})); log('SECURED £' + amt + ' FROM ' + (tab==='family'?state.family[contact].name:state.friends[contact].name), true); } else { log('SENT MESSAGE TO CONTACT'); } }} />`}
+                                    ${phoneApp === 'Chow AI' && html`<div className="flex flex-col h-full"><div className="flex-1 flex flex-col items-center justify-center opacity-30 italic"><${Lucide.Bot} size=${64} className="mb-6 text-purple-400"/><div className="text-xs uppercase font-black tracking-widest">Neural Link Active</div></div></div>`}
+                                    ${phoneApp === 'ChowBank' && html`<div className="space-y-4">
+                                        <div className="p-10 glass rounded-[50px] text-center shadow-2xl border border-white/5"><div className="text-[10px] uppercase opacity-40 font-black tracking-[0.2em] mb-4">CHOW CENTRAL BANK</div><div className="text-4xl font-black text-emerald-400 italic">£${state.bank.balance.toLocaleString()}</div></div>
+                                        <div className="grid grid-cols-2 gap-3"><button onClick=${() => { if(state.money < 100) return; setState(p=>({...p, money:p.money-100, bank:{...p.bank, balance:p.bank.balance+100}})); log('SAVED £100'); }} className="p-5 glass rounded-[35px] font-black text-[10px] uppercase tracking-widest border border-white/10 active:scale-95">DEPOSIT</button><button onClick=${() => { if(state.bank.balance < 100) return; setState(p=>({...p, money:p.money+100, bank:{...p.bank, balance:p.bank.balance-100}})); log('WITHDREW £100'); }} className="p-5 glass rounded-[35px] font-black text-[10px] uppercase tracking-widest border border-white/10 active:scale-95">WITHDRAW</button></div>
+                                    </div>`}
+                                </div>
+                            </div>`}
+                        </div>`}
+
+                        ${view === 'profile' && html`<div className="space-y-6">
+                            <div className="flex justify-between items-start">
+                                <h2 className="text-4xl font-black italic uppercase italic tracking-tighter">Identity</h2>
+                                ${state.assets.house && html`<div className="bg-emerald-600/20 p-4 rounded-[30px] flex flex-col items-center border border-emerald-500/50 backdrop-blur-2xl shadow-xl"><${Lucide.Home} size=${28} className="text-emerald-400" /><span className="text-[8px] font-black uppercase mt-1 truncate max-w-[80px] tracking-widest opacity-80">${state.assets.house.name}</span></div>`}
+                            </div>
+                            <div className="glass p-8 rounded-[60px] flex justify-center py-16 border border-white/10 shadow-2xl bg-black/40"><${CharacterVisual} state=${state} scale=${1.2} /></div>
+                            <div className="glass p-10 rounded-[50px] space-y-6 border border-white/10 shadow-2xl">
+                                <h3 className="text-xl font-black italic uppercase tracking-widest opacity-30">Identity Metrics</h3>
+                                <div className="space-y-5">
+                                    <div className="flex justify-between text-xs font-black uppercase italic tracking-widest"><span>Global Reach</span><span className="text-red-500">${state.social.subscribers.toLocaleString()} SUBS</span></div>
+                                    <div className="flex justify-between text-xs font-black uppercase italic tracking-widest"><span>Bank Exposure</span><span className="text-red-500">£${state.bank.debt.toLocaleString()} DEBT</span></div>
+                                    <div className="flex justify-between text-xs font-black uppercase italic tracking-widest"><span>Net Assets</span><span className="text-emerald-500">${state.ownedAssets.length} PIECES</span></div>
+                                </div>
+                            </div>
+                        </div>`}
+                    </main>
+
+                    <nav className="fixed bottom-0 left-0 right-0 pb-12 pt-6 px-5 glass border-t border-white/5 flex justify-between items-center backdrop-blur-3xl z-50">
+                        <button onClick=${() => setView('academy')} className=${`flex flex-col items-center gap-1.5 transition-all ${view === 'academy' ? 'text-blue-500 scale-110' : 'opacity-30'}`}><${Lucide.GraduationCap} size=${28} /><span className="text-[8px] font-black uppercase tracking-widest">Academy</span></button>
+                        <button onClick=${() => { setView('phone'); setPhoneApp(null); }} className=${`flex flex-col items-center gap-1.5 transition-all ${view === 'phone' ? 'text-blue-500 scale-110' : 'opacity-30'}`} disabled=${!state.assets.phone}><${Lucide.Smartphone} size=${28} /><span className="text-[8px] font-black uppercase tracking-widest">Device</span></button>
+                        <button onClick=${grind} className="flex flex-col items-center gap-1.5 scale-125 translate-y-[-15px] bg-blue-600 p-5 rounded-full border-2 border-white/20 active:scale-90 transition-all shadow-2xl shadow-blue-900/50"><${Lucide.Zap} size=${30} fill="white"/><span className="text-[8px] font-black uppercase tracking-tighter">PROGRESS</span></button>
+                        <button onClick=${() => setView('shop')} className=${`flex flex-col items-center gap-1.5 transition-all ${view === 'shop' ? 'text-blue-500 scale-110' : 'opacity-30'}`}><${Lucide.ShoppingCart} size=${28} /><span className="text-[8px] font-black uppercase tracking-widest">Market</span></button>
+                        <button onClick=${() => setView('profile')} className=${`flex flex-col items-center gap-1.5 transition-all ${view === 'profile' ? 'text-blue-500 scale-110' : 'opacity-30'}`}><${Lucide.User} size=${28} /><span className="text-[8px] font-black uppercase tracking-widest">Identity</span></button>
+                    </nav>
+                </div>
+            `;
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(html`<${App} />`);
+    </script>
+</body>
+</html>
